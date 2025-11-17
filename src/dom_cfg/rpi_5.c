@@ -64,6 +64,9 @@ static ssize_t get_domu_image_size(void *image_info, uint64_t *size)
 }
 #endif /* CONFIG_DOM_STORAGE_FATFS_ENABLE */
 
+/*
+ * Linux PV DomU guests (generic Arm64 DomU and Web DomU)
+ */
 #if defined(CONFIG_DOM_CFG_LINUX_PV_DOMAIN)
 static const char *params_vif =
 	"vif=[ 'backend=1,bridge=xenbr0,mac=08:00:27:ff:cb:ce,ip=192.168.0.2 "
@@ -73,6 +76,17 @@ static const char *params_vbd =
 	"disk=[ 'backend=1, format=raw, vdev=xvda, "
 	"access=rw, target=/etc/u-boot-initial-env' ]";
 
+static const char *params_vif_web =
+	"vif=[ 'backend=1,bridge=xenbr0,mac=08:00:27:ff:cb:cf,ip=192.168.0.3 "
+	"255.255.255.0 192.168.0.1' ]";
+
+static const char *params_vbd_web =
+	"disk=[ 'backend=1, format=raw, vdev=xvda, "
+	"access=rw, target=/etc/u-boot-initial-env' ]";
+
+/*
+ * Generic Linux PV DomU (used for the "classic" Linux PV demo)
+ */
 static struct xen_domain_cfg domu_cfg_3 = {
 	.name = "linux_pv_domu",
 	.mem_kb = 256 * 1024,
@@ -90,14 +104,42 @@ static struct xen_domain_cfg domu_cfg_3 = {
 	.get_image_size = storage_image_kernel_get_size,
 };
 
-void pv_domu_init(void)
+/*
+ * Web DomU: identical to linux_pv_domu, but with a different name and MAC/IP.
+ * The initramfs runs BusyBox httpd and serves static content from /var/www.
+ */
+static struct xen_domain_cfg domu_cfg_4 = {
+	.name = "linux_pv_domu_web",
+	.mem_kb = 256 * 1024,
+	.flags = (XEN_DOMCTL_CDF_hvm | XEN_DOMCTL_CDF_hap),
+	.max_evtchns = 10,
+	.max_vcpus = 2,
+	.gnt_frames = 32,
+	.max_maptrack_frames = 1,
+	.gic_version = XEN_DOMCTL_CONFIG_GIC_V2,
+	.tee_type = XEN_DOMCTL_CONFIG_TEE_NONE,
+	.cmdline = "root=/dev/ram0 rootwait console=hvc0 clk_ignore_unused",
+	.ssidref = 12,
+
+	.load_image_bytes = storage_image_kernel_read,
+	.get_image_size = storage_image_kernel_get_size,
+};
+
+static void pv_domu_init(void)
 {
 	parse_one_record_and_fill_cfg(params_vif, &domu_cfg_3.back_cfg);
 	parse_one_record_and_fill_cfg(params_vbd, &domu_cfg_3.back_cfg);
 }
 
+static void pv_domu_web_init(void)
+{
+	parse_one_record_and_fill_cfg(params_vif_web, &domu_cfg_4.back_cfg);
+	parse_one_record_and_fill_cfg(params_vbd_web, &domu_cfg_4.back_cfg);
+}
+
 #endif /* CONFIG_DOM_CFG_LINUX_PV_DOMAIN */
 
+/* Zephyr DomU used for the sync demo */
 static struct xen_domain_cfg domu_cfg_1 = {
 	.name = "rpi_5_domu",
 	.mem_kb = 16384,
@@ -154,6 +196,7 @@ static ssize_t get_domd_image_size(void *image_info, uint64_t *size)
 }
 #endif /* CONFIG_DOM_STORAGE_FATFS_ENABLE */
 
+/* Driver domain (DomD) */
 static struct xen_domain_cfg domu_cfg_0 = {
 	.name = "rpi_5_domd",
 	.mem_kb = 16384,
@@ -186,6 +229,7 @@ static struct xen_domain_cfg domu_cfg_0 = {
 
 };
 
+/* Dom0less domain configuration table */
 struct dom0_domain_cfg domain_cfgs[] = {
 	{
 		.domain_cfg = &domu_cfg_0,
@@ -202,14 +246,24 @@ struct dom0_domain_cfg domain_cfgs[] = {
 #if defined(CONFIG_DOM_STORAGE_FATFS_ENABLE)
 	{
 		.domain_cfg = &domu_cfg_2,
-		.image_kernel_path = DISK_BIN_PATH"helloworld_xen-arm64",
+		.image_kernel_path = DISK_BIN_PATH "helloworld_xen-arm64",
 	},
 #endif /* CONFIG_DOM_STORAGE_FATFS_ENABLE */
 #if defined(CONFIG_DOM_CFG_LINUX_PV_DOMAIN)
+	/*
+	 * Linux PV domains:
+	 *  - linux_pv_domu: generic Linux PV demo
+	 *  - linux_pv_domu_web: web DomU serving BusyBox httpd content
+	 */
 	{
 		.domain_cfg = &domu_cfg_3,
-		.image_kernel_path = DISK_BIN_PATH"linux-pv-image",
+		.image_kernel_path = DISK_BIN_PATH "linux-pv-image",
 		.init = pv_domu_init,
+	},
+	{
+		.domain_cfg = &domu_cfg_4,
+		.image_kernel_path = DISK_BIN_PATH "linux-pv-web-image",
+		.init = pv_domu_web_init,
 	},
 #endif /* CONFIG_DOM_CFG_LINUX_PV_DOMAIN */
 	{ 0 },
