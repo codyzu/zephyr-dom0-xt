@@ -38,7 +38,13 @@
 	 */
 	hypervisor: hypervisor@2000000 {
 		compatible = "xen,xen";
-		reg = <0x00 0x2000000 0x40000>, <0x00 0x2200000 0x5400000>;
+		/* Grant table window + Dom0 extended regions from Xen boot log */
+		reg = <0x00 0x02000000 0x00040000>,	/* Grant table range */
+		      <0x00 0x02200000 0x05c00000>,	/* Extended region 0 */
+		      <0x00 0x08400000 0x07a00000>,	/* Extended region 1 */
+		      <0x00 0x18000000 0x04e00000>,	/* Extended region 2 */
+		      <0x00 0x1f000000 0x20a00000>,	/* Extended region 3 */
+		      <0x00 0x40000000 0x0fe00000>;	/* Extended region 4 */
 		interrupts = <GIC_PPI 0x0 IRQ_TYPE_EDGE IRQ_DEFAULT_PRIORITY>;
 		interrupt-parent = <&gic>;
 		status = "okay";
