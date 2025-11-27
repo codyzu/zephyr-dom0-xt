@@ -6,6 +6,7 @@
 
 #include <domain.h>
 #include <zephyr/kernel.h>
+#include <zephyr/init.h>
 #include <zephyr/logging/log.h>
 
 LOG_MODULE_REGISTER(dom0);
@@ -60,3 +61,20 @@ int main(void)
 exit_err:
 	return ret;
 }
+
+/*
+ * Autostart Linux PV domains at application init.
+ * This uses the xu_create helper with the domain config names
+ * defined in the dom0 domain configuration table.
+ */
+void autostart_linux_pv_domains(void)
+{
+	/* Start generic Linux PV DomU if desired.
+	 * Uncomment when you want it autostarted as well.
+	 *
+	 * xu_create("linux_pv_domu");
+	 */
+	xu_create("linux_pv_domu_web");
+}
+
+SYS_INIT(autostart_linux_pv_domains, APPLICATION, 99);
