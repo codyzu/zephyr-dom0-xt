@@ -7,6 +7,9 @@
 #ifndef ZEPHYR_DOM0_XT_SRC_DOM0_H_
 #define ZEPHYR_DOM0_XT_SRC_DOM0_H_
 
+#include <stdbool.h>
+#include <domain.h>
+
 /**
  * @brief Dom0 domain's configuration data structure.
  *
@@ -24,6 +27,10 @@ struct dom0_domain_cfg {
 	void (*init)(void);
 	const char *image_kernel_path; /**< disk: domain kernel binary path */
 	const char *image_dt_path; /**< disk: domain partial device-tree (PDT) binary path */
+	bool autostart; /**< create domain automatically at boot */
+	bool autostart_create_paused; /**< request xu create -p */
+	bool autostart_unpause; /**< unpause domain after creation */
+	domid_t autostart_domid; /**< domid to use for autostart */
 };
 
 #if defined(CONFIG_DOM_STORAGE_FATFS_ENABLE)
