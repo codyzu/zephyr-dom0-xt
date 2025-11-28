@@ -68,8 +68,6 @@ static ssize_t get_domu_image_size(void *image_info, uint64_t *size)
  * Linux PV DomU guests (generic Arm64 DomU and Web DomU)
  */
 #if defined(CONFIG_DOM_CFG_LINUX_PV_DOMAIN)
-#define LINUX_PV_DOMU_WEB_DOMID 4U
-
 static const char *params_vif =
 	"vif=[ 'backend=1,bridge=xenbr0,mac=08:00:27:ff:cb:ce,ip=192.168.0.2 "
 	"255.255.255.0 192.168.0.1' ]";
@@ -266,10 +264,6 @@ struct dom0_domain_cfg domain_cfgs[] = {
 		.domain_cfg = &domu_cfg_4,
 		.image_kernel_path = DISK_BIN_PATH "linux-pv-web-image",
 		.init = pv_domu_web_init,
-		.autostart = true,
-		.autostart_create_paused = true,
-		.autostart_unpause = true,
-		.autostart_domid = LINUX_PV_DOMU_WEB_DOMID,
 	},
 #endif /* CONFIG_DOM_CFG_LINUX_PV_DOMAIN */
 	{ 0 },

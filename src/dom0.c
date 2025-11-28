@@ -5,8 +5,6 @@
  */
 
 #include <domain.h>
-#include <errno.h>
-#include <stdio.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/shell/shell.h>
@@ -17,91 +15,33 @@ LOG_MODULE_REGISTER(dom0);
 
 extern struct dom0_domain_cfg domain_cfgs[];
 
-#define DOM0_AUTOSTART_CMD_LEN 64
-/* Give the Zephyr shell time to initialize before executing commands. */
+#ifndef STRINGIFY
+#define STRINGIFY_INNER(x) #x
+#define STRINGIFY(x) STRINGIFY_INNER(x)
+#endif
+
 #define DOM0_AUTOSTART_DELAY_MS 500U
+#define DOM0_WEB_DOMAIN_ID 4U
 
-static bool dom0_has_autostart(void)
+#if defined(CONFIG_DOM_CFG_LINUX_PV_DOMAIN)
+static void dom0_start_linux_pv_web(void)
 {
-	int i = 0;
-
-	while (domain_cfgs[i].domain_cfg) {
-		if (domain_cfgs[i].autostart) {
-			return true;
-		}
-		i++;
-	}
-
-	return false;
-}
-
-static int dom0_autostart_domain(struct dom0_domain_cfg *cfg)
-{
-	char cmd[DOM0_AUTOSTART_CMD_LEN];
-	int len;
 	int ret;
 
-	if (!cfg->domain_cfg || !cfg->domain_cfg->name || !cfg->domain_cfg->name[0]) {
-		LOG_ERR("autostart: invalid domain configuration entry");
-		return -EINVAL;
-	}
+	k_msleep(DOM0_AUTOSTART_DELAY_MS);
 
-	if (cfg->autostart_domid == 0U) {
-		LOG_ERR("autostart: domid is not set for %s", cfg->domain_cfg->name);
-		return -EINVAL;
-	}
-
-	len = snprintf(cmd, sizeof(cmd), "xu create %s -d %u%s",
-		       cfg->domain_cfg->name,
-		       (unsigned int)cfg->autostart_domid,
-		       cfg->autostart_create_paused ? " -p" : "");
-	if ((len < 0) || (len >= DOM0_AUTOSTART_CMD_LEN)) {
-		LOG_ERR("autostart: create command truncated for %s", cfg->domain_cfg->name);
-		return -ENOSPC;
-	}
-
-	ret = shell_execute_cmd(NULL, cmd);
+	ret = shell_execute_cmd(NULL, "xu create linux_pv_domu_web -d " STRINGIFY(DOM0_WEB_DOMAIN_ID) " -p");
 	if (ret) {
-		LOG_ERR("autostart: \"%s\" failed (%d)", cmd, ret);
-		return ret;
+		LOG_ERR("Failed to create linux_pv_domu_web (%d)", ret);
+		return;
 	}
 
-	LOG_INF("autostart: created %s (domid %u)", cfg->domain_cfg->name,
-		(unsigned int)cfg->autostart_domid);
-
-	if (!cfg->autostart_unpause) {
-		return 0;
-	}
-
-	len = snprintf(cmd, sizeof(cmd), "xu unpause %u", (unsigned int)cfg->autostart_domid);
-	if ((len < 0) || (len >= DOM0_AUTOSTART_CMD_LEN)) {
-		LOG_ERR("autostart: unpause command truncated for %s", cfg->domain_cfg->name);
-		return -ENOSPC;
-	}
-
-	ret = shell_execute_cmd(NULL, cmd);
+	ret = shell_execute_cmd(NULL, "xu unpause " STRINGIFY(DOM0_WEB_DOMAIN_ID));
 	if (ret) {
-		LOG_ERR("autostart: \"%s\" failed (%d)", cmd, ret);
-		return ret;
-	}
-
-	LOG_INF("autostart: unpaused %s (domid %u)", cfg->domain_cfg->name,
-		(unsigned int)cfg->autostart_domid);
-
-	return 0;
-}
-
-static void dom0_autostart_domains(void)
-{
-	int i = 0;
-
-	while (domain_cfgs[i].domain_cfg) {
-		if (domain_cfgs[i].autostart) {
-			(void)dom0_autostart_domain(&domain_cfgs[i]);
-		}
-		i++;
+		LOG_ERR("Failed to unpause linux_pv_domu_web (%d)", ret);
 	}
 }
+#endif
 
 int domain_get_user_cfg_count(void)
 {
@@ -127,7 +67,6 @@ int main(void)
 {
 	int ret;
 	int i = 0;
-	bool autostart_needed = dom0_has_autostart();
 
 	ret = storage_init();
 	if (ret) {
@@ -147,10 +86,11 @@ int main(void)
 		i++;
 	}
 
-	if (!ret && autostart_needed) {
-		k_msleep(DOM0_AUTOSTART_DELAY_MS);
-		dom0_autostart_domains();
+#if defined(CONFIG_DOM_CFG_LINUX_PV_DOMAIN)
+	if (!ret) {
+		dom0_start_linux_pv_web();
 	}
+#endif
 
 exit_err:
 	return ret;
