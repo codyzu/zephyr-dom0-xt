@@ -8,6 +8,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/shell/shell.h>
+#include <zephyr/init.h>
 
 LOG_MODULE_REGISTER(dom0);
 
@@ -24,23 +25,32 @@ extern struct dom0_domain_cfg domain_cfgs[];
 #define DOM0_WEB_DOMAIN_ID 4U
 
 #if defined(CONFIG_DOM_CFG_LINUX_PV_DOMAIN)
-static void dom0_start_linux_pv_web(void)
+static int dom0_autostart_linux_pv_web(const struct device *dev)
 {
-	int ret;
+    ARG_UNUSED(dev);
+    int ret;
 
-	k_msleep(DOM0_AUTOSTART_DELAY_MS);
+    k_msleep(DOM0_AUTOSTART_DELAY_MS);
+    LOG_INF("Autostarting linux_pv_domu_web (delay %u ms, domid %u)",
+            DOM0_AUTOSTART_DELAY_MS, DOM0_WEB_DOMAIN_ID);
 
-	ret = shell_execute_cmd(NULL, "xu create linux_pv_domu_web -d " STRINGIFY(DOM0_WEB_DOMAIN_ID) " -p");
-	if (ret) {
-		LOG_ERR("Failed to create linux_pv_domu_web (%d)", ret);
-		return;
-	}
+    ret = shell_execute_cmd(NULL, "xu create linux_pv_domu_web -d " STRINGIFY(DOM0_WEB_DOMAIN_ID) " -p");
+    if (ret) {
+        LOG_ERR("Failed to create linux_pv_domu_web (%d)", ret);
+        return ret;
+    }
 
-	ret = shell_execute_cmd(NULL, "xu unpause " STRINGIFY(DOM0_WEB_DOMAIN_ID));
-	if (ret) {
-		LOG_ERR("Failed to unpause linux_pv_domu_web (%d)", ret);
-	}
+    ret = shell_execute_cmd(NULL, "xu unpause " STRINGIFY(DOM0_WEB_DOMAIN_ID));
+    if (ret) {
+        LOG_ERR("Failed to unpause linux_pv_domu_web (%d)", ret);
+        return ret;
+    }
+
+    LOG_INF("linux_pv_domu_web started successfully");
+    return 0;
 }
+
+SYS_INIT(dom0_autostart_linux_pv_web, APPLICATION, 99);
 #endif
 
 int domain_get_user_cfg_count(void)
@@ -85,12 +95,6 @@ int main(void)
 		domain_cfgs[i].domain_cfg->image_info = &domain_cfgs[i];
 		i++;
 	}
-
-#if defined(CONFIG_DOM_CFG_LINUX_PV_DOMAIN)
-	if (!ret) {
-		dom0_start_linux_pv_web();
-	}
-#endif
 
 exit_err:
 	return ret;
