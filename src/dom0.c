@@ -34,17 +34,18 @@ static int dom0_autostart_linux_pv_web(const struct device *dev)
     LOG_INF("Autostarting linux_pv_domu_web (delay %u ms, domid %u)",
             DOM0_AUTOSTART_DELAY_MS, DOM0_WEB_DOMAIN_ID);
 
-    ret = shell_execute_cmd(NULL, "xu create linux_pv_domu_web -d " STRINGIFY(DOM0_WEB_DOMAIN_ID) " -p");
+    // ret = shell_execute_cmd(NULL, "xu create linux_pv_domu_web -d " STRINGIFY(DOM0_WEB_DOMAIN_ID) " -p");
+    ret = shell_execute_cmd(NULL, "xu create linux_pv_domu_web");
     if (ret) {
         LOG_ERR("Failed to create linux_pv_domu_web (%d)", ret);
         return ret;
     }
 
-    ret = shell_execute_cmd(NULL, "xu unpause " STRINGIFY(DOM0_WEB_DOMAIN_ID));
-    if (ret) {
-        LOG_ERR("Failed to unpause linux_pv_domu_web (%d)", ret);
-        return ret;
-    }
+    // ret = shell_execute_cmd(NULL, "xu unpause " STRINGIFY(DOM0_WEB_DOMAIN_ID));
+    // if (ret) {
+    //     LOG_ERR("Failed to unpause linux_pv_domu_web (%d)", ret);
+    //     return ret;
+    // }
 
     LOG_INF("linux_pv_domu_web started successfully");
     return 0;
