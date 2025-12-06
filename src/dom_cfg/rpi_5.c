@@ -110,7 +110,7 @@ static struct xen_domain_cfg domu_cfg_3 = {
  */
 static struct xen_domain_cfg domu_cfg_4 = {
 	.name = "linux_pv_domu_web",
-	.mem_kb = 256 * 1024,
+	.mem_kb = 512 * 1024,
 	.flags = (XEN_DOMCTL_CDF_hvm | XEN_DOMCTL_CDF_hap),
 	.max_evtchns = 10,
 	.max_vcpus = 2,
