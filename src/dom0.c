@@ -8,6 +8,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/shell/shell.h>
+#include <zephyr/init.h>
 
 LOG_MODULE_REGISTER(dom0);
 
@@ -20,34 +21,52 @@ extern struct dom0_domain_cfg domain_cfgs[];
 #define STRINGIFY(x) STRINGIFY_INNER(x)
 #endif
 
-#define DOM0_AUTOSTART_DELAY_MS 500U
-#define DOM0_WEB_DOMAIN_ID 4U
+#define DOM0_AUTOSTART_DELAY_MS        5000U
+#define DOM0_AUTOSTART_RETRY_DELAY_MS  1000U
+#define DOM0_AUTOSTART_MAX_RETRIES     3U
 
 #if defined(CONFIG_DOM_CFG_LINUX_PV_DOMAIN)
-static int dom0_autostart_linux_pv_web(void)
+static void dom0_autostart_work(struct k_work *work)
 {
+    ARG_UNUSED(work);
+
     int ret;
+    uint32_t attempt = 0;
 
-    k_msleep(DOM0_AUTOSTART_DELAY_MS);
-    LOG_INF("Autostarting linux_pv_domu_web (delay %u ms, domid %u)",
-            DOM0_AUTOSTART_DELAY_MS, DOM0_WEB_DOMAIN_ID);
+    while (attempt < DOM0_AUTOSTART_MAX_RETRIES) {
+        attempt++;
 
-    // ret = shell_execute_cmd(NULL, "xu create linux_pv_domu_web -d " STRINGIFY(DOM0_WEB_DOMAIN_ID) " -p");
-    ret = shell_execute_cmd(NULL, "xu create linux_pv_domu_web");
-    if (ret) {
-        LOG_ERR("Failed to create linux_pv_domu_web (%d)", ret);
-        return ret;
+        LOG_INF("Autostart attempt %u: linux_pv_domu_web", attempt);
+
+        ret = shell_execute_cmd(NULL, "xu create linux_pv_domu_web");
+        if (ret == 0) {
+            LOG_INF("linux_pv_domu_web started successfully");
+            return;
+        }
+
+        LOG_WRN("Autostart attempt %u failed: %d", attempt, ret);
+        k_msleep(DOM0_AUTOSTART_RETRY_DELAY_MS);
     }
 
-    // ret = shell_execute_cmd(NULL, "xu unpause " STRINGIFY(DOM0_WEB_DOMAIN_ID));
-    // if (ret) {
-    //     LOG_ERR("Failed to unpause linux_pv_domu_web (%d)", ret);
-    //     return ret;
-    // }
+    LOG_ERR("linux_pv_domu_web autostart failed after %u attempts",
+            DOM0_AUTOSTART_MAX_RETRIES);
+}
 
-    LOG_INF("linux_pv_domu_web started successfully");
+K_WORK_DELAYABLE_DEFINE(dom0_autostart_dwork, dom0_autostart_work);
+
+static int dom0_autostart_linux_pv_web(const struct device *dev)
+{
+    ARG_UNUSED(dev);
+
+    LOG_INF("Scheduling autostart of linux_pv_domu_web in %u ms",
+            DOM0_AUTOSTART_DELAY_MS);
+
+    k_work_schedule(&dom0_autostart_dwork, K_MSEC(DOM0_AUTOSTART_DELAY_MS));
+
     return 0;
 }
+
+SYS_INIT(dom0_autostart_linux_pv_web, APPLICATION, 99);
 #endif
 
 int domain_get_user_cfg_count(void)
@@ -92,17 +111,6 @@ int main(void)
 		domain_cfgs[i].domain_cfg->image_info = &domain_cfgs[i];
 		i++;
 	}
-
-#if defined(CONFIG_DOM_CFG_LINUX_PV_DOMAIN)
-	/* Autostart the web DomU only after storage and domain configs are ready */
-	{
-		int web_ret = dom0_autostart_linux_pv_web();
-
-		if (web_ret) {
-			LOG_WRN("linux_pv_domu_web autostart failed: %d", web_ret);
-		}
-	}
-#endif
 
 exit_err:
 	return ret;
