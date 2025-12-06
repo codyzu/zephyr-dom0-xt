@@ -8,7 +8,6 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/shell/shell.h>
-#include <zephyr/init.h>
 
 LOG_MODULE_REGISTER(dom0);
 
@@ -25,9 +24,8 @@ extern struct dom0_domain_cfg domain_cfgs[];
 #define DOM0_WEB_DOMAIN_ID 4U
 
 #if defined(CONFIG_DOM_CFG_LINUX_PV_DOMAIN)
-static int dom0_autostart_linux_pv_web(const struct device *dev)
+static int dom0_autostart_linux_pv_web(void)
 {
-    ARG_UNUSED(dev);
     int ret;
 
     k_msleep(DOM0_AUTOSTART_DELAY_MS);
@@ -50,8 +48,6 @@ static int dom0_autostart_linux_pv_web(const struct device *dev)
     LOG_INF("linux_pv_domu_web started successfully");
     return 0;
 }
-
-SYS_INIT(dom0_autostart_linux_pv_web, APPLICATION, 99);
 #endif
 
 int domain_get_user_cfg_count(void)
@@ -96,6 +92,17 @@ int main(void)
 		domain_cfgs[i].domain_cfg->image_info = &domain_cfgs[i];
 		i++;
 	}
+
+#if defined(CONFIG_DOM_CFG_LINUX_PV_DOMAIN)
+	/* Autostart the web DomU only after storage and domain configs are ready */
+	{
+		int web_ret = dom0_autostart_linux_pv_web();
+
+		if (web_ret) {
+			LOG_WRN("linux_pv_domu_web autostart failed: %d", web_ret);
+		}
+	}
+#endif
 
 exit_err:
 	return ret;
