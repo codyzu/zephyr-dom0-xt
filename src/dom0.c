@@ -21,52 +21,34 @@ extern struct dom0_domain_cfg domain_cfgs[];
 #define STRINGIFY(x) STRINGIFY_INNER(x)
 #endif
 
-#define DOM0_AUTOSTART_DELAY_MS        5000U
-#define DOM0_AUTOSTART_RETRY_DELAY_MS  15000U
-#define DOM0_AUTOSTART_MAX_RETRIES     3U
+#define DOM0_AUTOSTART_DELAY_MS 5000U
 
 #if defined(CONFIG_DOM_CFG_LINUX_PV_DOMAIN)
-static void dom0_autostart_work(struct k_work *work)
+static int dom0_autostart_linux_pv_web(void)
 {
-    ARG_UNUSED(work);
-
     int ret;
-    uint32_t attempt = 0;
 
-    while (attempt < DOM0_AUTOSTART_MAX_RETRIES) {
-        attempt++;
+    LOG_INF("[autostart] Sleeping %u ms before starting linux_pv_domu_web", DOM0_AUTOSTART_DELAY_MS);
+    k_msleep(DOM0_AUTOSTART_DELAY_MS);
 
-        LOG_INF("Autostart attempt %u: linux_pv_domu_web", attempt);
+    LOG_INF("[autostart] Probing 'xu list' before create");
+    ret = shell_execute_cmd(NULL, "xu list");
+    LOG_INF("[autostart] 'xu list' before create returned %d", ret);
 
-        ret = shell_execute_cmd(NULL, "xu create linux_pv_domu_web");
-        if (ret == 0) {
-            LOG_INF("linux_pv_domu_web started successfully");
-            return;
-        }
-
-        LOG_WRN("Autostart attempt %u failed: %d", attempt, ret);
-        k_msleep(DOM0_AUTOSTART_RETRY_DELAY_MS);
+    LOG_INF("[autostart] Running 'xu create linux_pv_domu_web'");
+    ret = shell_execute_cmd(NULL, "xu create linux_pv_domu_web");
+    if (ret) {
+        LOG_ERR("[autostart] Failed to create linux_pv_domu_web (%d)", ret);
+        return ret;
     }
 
-    LOG_ERR("linux_pv_domu_web autostart failed after %u attempts",
-            DOM0_AUTOSTART_MAX_RETRIES);
-}
+    LOG_INF("[autostart] 'xu create linux_pv_domu_web' succeeded, probing 'xu list' after create");
+    ret = shell_execute_cmd(NULL, "xu list");
+    LOG_INF("[autostart] 'xu list' after create returned %d", ret);
 
-K_WORK_DELAYABLE_DEFINE(dom0_autostart_dwork, dom0_autostart_work);
-
-static int dom0_autostart_linux_pv_web(const struct device *dev)
-{
-    ARG_UNUSED(dev);
-
-    LOG_INF("Scheduling autostart of linux_pv_domu_web in %u ms",
-            DOM0_AUTOSTART_DELAY_MS);
-
-    k_work_schedule(&dom0_autostart_dwork, K_MSEC(DOM0_AUTOSTART_DELAY_MS));
-
+    LOG_INF("[autostart] linux_pv_domu_web started successfully");
     return 0;
 }
-
-SYS_INIT(dom0_autostart_linux_pv_web, APPLICATION, 99);
 #endif
 
 int domain_get_user_cfg_count(void)
@@ -111,6 +93,17 @@ int main(void)
 		domain_cfgs[i].domain_cfg->image_info = &domain_cfgs[i];
 		i++;
 	}
+
+#if defined(CONFIG_DOM_CFG_LINUX_PV_DOMAIN)
+	/* Best-effort autostart of the web domain once storage and domain cfgs are ready */
+	{
+		int web_ret = dom0_autostart_linux_pv_web();
+
+		if (web_ret) {
+			LOG_WRN("[autostart] linux_pv_domu_web autostart failed: %d", web_ret);
+		}
+	}
+#endif
 
 exit_err:
 	return ret;
