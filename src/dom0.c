@@ -22,7 +22,7 @@ extern struct dom0_domain_cfg domain_cfgs[];
 #endif
 
 #define DOM0_AUTOSTART_DELAY_MS        5000U
-#define DOM0_AUTOSTART_RETRY_DELAY_MS  1000U
+#define DOM0_AUTOSTART_RETRY_DELAY_MS  15000U
 #define DOM0_AUTOSTART_MAX_RETRIES     3U
 
 #if defined(CONFIG_DOM_CFG_LINUX_PV_DOMAIN)
