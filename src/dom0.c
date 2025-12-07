@@ -28,23 +28,38 @@ static int dom0_autostart_linux_pv_web(void)
 {
     int ret;
 
-    LOG_INF("[autostart] Sleeping %u ms before starting linux_pv_domu_web", DOM0_AUTOSTART_DELAY_MS);
+    LOG_INF("[autostart] Sleeping %u ms before starting linux_pv_domu_web",
+            DOM0_AUTOSTART_DELAY_MS);
     k_msleep(DOM0_AUTOSTART_DELAY_MS);
 
-    LOG_INF("[autostart] Probing 'xu list' before create");
-    ret = shell_execute_cmd(NULL, "xu list");
-    LOG_INF("[autostart] 'xu list' before create returned %d", ret);
+    LOG_INF("[autostart] Waiting for xu to become ready...");
 
+    const int retry_max = 50;
+    const int retry_delay_ms = 200;
+
+    for (int i = 0; i < retry_max; i++) {
+        ret = shell_execute_cmd(NULL, "xu list");
+
+        if (ret == 0) {
+            LOG_INF("[autostart] 'xu list' succeeded on attempt %d", i + 1);
+            goto xu_ready;
+        }
+
+        LOG_INF("[autostart] 'xu list' not ready yet (ret=%d), retry %d/%d",
+                ret, i + 1, retry_max);
+        k_msleep(retry_delay_ms);
+    }
+
+    LOG_WRN("[autostart] xu never became ready, last ret=%d", ret);
+    return ret ? ret : -EINVAL;
+
+xu_ready:
     LOG_INF("[autostart] Running 'xu create linux_pv_domu_web'");
     ret = shell_execute_cmd(NULL, "xu create linux_pv_domu_web");
     if (ret) {
         LOG_ERR("[autostart] Failed to create linux_pv_domu_web (%d)", ret);
         return ret;
     }
-
-    LOG_INF("[autostart] 'xu create linux_pv_domu_web' succeeded, probing 'xu list' after create");
-    ret = shell_execute_cmd(NULL, "xu list");
-    LOG_INF("[autostart] 'xu list' after create returned %d", ret);
 
     LOG_INF("[autostart] linux_pv_domu_web started successfully");
     return 0;
