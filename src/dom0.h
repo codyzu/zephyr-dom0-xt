@@ -7,8 +7,6 @@
 #ifndef ZEPHYR_DOM0_XT_SRC_DOM0_H_
 #define ZEPHYR_DOM0_XT_SRC_DOM0_H_
 
-#include <domain.h>
-
 /**
  * @brief Dom0 domain's configuration data structure.
  *
